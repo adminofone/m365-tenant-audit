@@ -70,7 +70,7 @@ Sign in with a **Global Reader** (recommended) or Global Administrator account a
 
 ## Fix what it finds
 
-The audit tells you what's wrong. **[Tenant Lockdown Kit](https://adminofone.gumroad.com/l/tenant-lockdown-kit)** fixes it: Conditional Access policies (report-only first, with a break-glass account), Exchange Online hardening and an Intune baseline, each with `-WhatIf` and a rollback command, plus an 8-page implementation guide. One-command user onboarding and offboarding is coming in the Complete Edition.
+The audit tells you what's wrong. **[Tenant Lockdown Kit](https://adminofone.gumroad.com/l/tenant-lockdown-kit)** fixes it: Conditional Access policies (report-only first, with a break-glass account), Exchange Online hardening and an Intune baseline, each with `-WhatIf` and a rollback command, plus an 8-page implementation guide. The **[Complete Edition](https://adminofone.gumroad.com/l/tenant-lockdown-kit-complete)** adds one-command user onboarding and offboarding.
 
 ## License
 
