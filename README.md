@@ -1,0 +1,74 @@
+# M365 Tenant Audit
+
+**A free, read-only security check for Microsoft 365. One command, one HTML report, a score out of 100.**
+
+Built for the one-person IT department: small and mid-size companies on Microsoft 365 Business Premium that have no security team, but still get the phishing emails.
+
+```powershell
+./Invoke-M365TenantAudit.ps1
+```
+
+> **Read-only.** The script requests read permissions only and makes no changes to your tenant.
+
+---
+
+## What it checks
+
+| Area | Checks |
+|---|---|
+| **Identity** | Security Defaults / Conditional Access MFA for all users, legacy auth blocked, admin MFA strength, break-glass exclusions, report-only policies, password expiration |
+| **Privileged access** | Global Administrator count, admins without MFA registered |
+| **Accounts** | MFA registration rate, stale member and guest accounts, guest invitation settings |
+| **Applications** | User consent to third-party apps, who can register apps, expiring or expired app secrets and certificates |
+| **Devices** | Intune compliance policies |
+| **Posture** | Microsoft Secure Score |
+| **Email** | SPF, DMARC and DKIM for every custom domain |
+
+Every finding comes with the exact place to fix it.
+
+## Quick start
+
+**1. Install PowerShell 7**
+
+```bash
+# Windows
+winget install --id Microsoft.PowerShell --source winget
+# macOS
+brew install powershell
+```
+
+**2. Download and run**
+
+```powershell
+pwsh
+cd ~/Downloads
+./Invoke-M365TenantAudit.ps1
+```
+
+Sign in with a **Global Reader** (recommended) or Global Administrator account and accept the read-only permissions. The report opens in your browser when the scan finishes.
+
+**Options**
+
+```powershell
+./Invoke-M365TenantAudit.ps1 -StaleDays 60 -CsvPath ./findings.csv   # custom stale threshold + CSV export
+./Invoke-M365TenantAudit.ps1 -UseDeviceCode                           # sign in from another device
+```
+
+## Requirements
+
+- PowerShell 7+ (Windows, macOS, Linux)
+- `Microsoft.Graph.Authentication` module (installed automatically on first run)
+- Some checks (sign-in activity, MFA registration) need Entra ID P1, which is included in Microsoft 365 Business Premium. Without it those checks show as *Info* rather than failing.
+
+## Notes on new tenants
+
+- The MFA registration report and Secure Score can take **24–48 hours** to populate. Re-run later.
+- Email DNS checks use DNS-over-HTTPS (Cloudflare, falling back to Google).
+
+## Fix what it finds
+
+The audit tells you what's wrong. **[Tenant Lockdown Kit](https://adminofone.gumroad.com/l/tenant-lockdown-kit)** fixes it: Conditional Access policies (report-only first, with a break-glass account), Exchange Online hardening, an Intune baseline, and one-command user onboarding and offboarding, each with `-WhatIf` and a rollback command.
+
+## License
+
+MIT. Provided as-is, without warranty. Not affiliated with or endorsed by Microsoft.
