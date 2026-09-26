@@ -42,8 +42,11 @@ brew install powershell
 ```powershell
 pwsh
 cd ~/Downloads
+Invoke-WebRequest https://raw.githubusercontent.com/adminofone/m365-tenant-audit/main/Invoke-M365TenantAudit.ps1 -OutFile Invoke-M365TenantAudit.ps1
 ./Invoke-M365TenantAudit.ps1
 ```
+
+On Windows, if you see *"running scripts is disabled"*, run `Unblock-File ./Invoke-M365TenantAudit.ps1` once.
 
 Sign in with a **Global Reader** (recommended) or Global Administrator account and accept the read-only permissions. The report opens in your browser when the scan finishes.
 
@@ -67,7 +70,7 @@ Sign in with a **Global Reader** (recommended) or Global Administrator account a
 
 ## Fix what it finds
 
-The audit tells you what's wrong. **[Tenant Lockdown Kit](https://adminofone.gumroad.com/l/tenant-lockdown-kit)** fixes it: Conditional Access policies (report-only first, with a break-glass account), Exchange Online hardening, an Intune baseline, and one-command user onboarding and offboarding, each with `-WhatIf` and a rollback command.
+The audit tells you what's wrong. **[Tenant Lockdown Kit](https://adminofone.gumroad.com/l/tenant-lockdown-kit)** fixes it: Conditional Access policies (report-only first, with a break-glass account), Exchange Online hardening and an Intune baseline, each with `-WhatIf` and a rollback command, plus an 8-page implementation guide. One-command user onboarding and offboarding is coming in the Complete Edition.
 
 ## License
 
