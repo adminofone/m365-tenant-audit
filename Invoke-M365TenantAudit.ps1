@@ -1,4 +1,21 @@
-#Requires -Version 7.0
+<#PSScriptInfo
+.VERSION 1.0.2
+.GUID 7d3f2a91-5c4e-4b8a-9f61-2e0c8d4b7a13
+.AUTHOR Admin of One
+.COMPANYNAME Admin of One
+.COPYRIGHT (c) 2026 Admin of One. MIT License.
+.TAGS M365 Microsoft365 Security Audit EntraID ConditionalAccess Intune MFA
+.LICENSEURI https://github.com/adminofone/m365-tenant-audit/blob/main/LICENSE
+.PROJECTURI https://github.com/adminofone/m365-tenant-audit
+.ICONURI
+.EXTERNALMODULEDEPENDENCIES Microsoft.Graph.Authentication
+.REQUIREDSCRIPTS
+.EXTERNALSCRIPTDEPENDENCIES
+.RELEASENOTES
+    1.0.2 - Report footer links to the Tenant Lockdown Kit.
+    1.0.1 - Real-tenant fixes.
+#>
+
 <#
 .SYNOPSIS
     M365 Tenant Security Audit (Free Edition) - READ-ONLY.
@@ -47,6 +64,7 @@
     Sign-in role : Global Reader (recommended) or Global Administrator
     License      : Provided AS-IS without warranty. MIT License.
 #>
+#Requires -Version 7.0
 [CmdletBinding()]
 param(
     [string]$OutputPath = (Join-Path -Path (Get-Location) -ChildPath ("M365-Audit-{0}.html" -f (Get-Date -Format 'yyyyMMdd-HHmm'))),
