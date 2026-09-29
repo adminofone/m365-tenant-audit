@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.2
+.VERSION 1.0.3
 .GUID 7d3f2a91-5c4e-4b8a-9f61-2e0c8d4b7a13
 .AUTHOR Admin of One
 .COMPANYNAME Admin of One
@@ -12,6 +12,7 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    1.0.3 - Admin MFA check now honours CA exclusions (excluded roles, users and groups) and only passes 'strong MFA' for a phishing-resistant authentication strength. The script no longer installs modules on its own; it tells you what to install and exits.
     1.0.2 - Report footer links to the Tenant Lockdown Kit.
     1.0.1 - Real-tenant fixes.
 #>
@@ -75,14 +76,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$ScriptVersion = '1.0.2'
+$ScriptVersion = '1.0.3'
 
 # ---------------------------------------------------------------------------
 # 0. Prerequisites
 # ---------------------------------------------------------------------------
 if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
-    Write-Host "Microsoft.Graph.Authentication module not found. Installing for current user..." -ForegroundColor Yellow
-    Install-Module Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber
+    Write-Host "Microsoft.Graph.Authentication module not found." -ForegroundColor Yellow
+    Write-Host "This script does not install modules on its own. Install it from the PowerShell Gallery, then run the script again:" -ForegroundColor Yellow
+    Write-Host "  Install-Module Microsoft.Graph.Authentication -Scope CurrentUser" -ForegroundColor White
+    exit 1
 }
 Import-Module Microsoft.Graph.Authentication
 
@@ -179,6 +182,51 @@ function Test-RequiresMfa {
     $g = $Policy.grantControls
     if (-not $g) { return $false }
     return (($g.builtInControls -contains 'mfa') -or ($null -ne $g.authenticationStrength))
+}
+
+$PhishingResistantMethods = @('fido2', 'windowsHelloForBusiness', 'x509CertificateMultiFactor')
+function Test-PhishingResistantStrength {
+    param($Policy)
+    $st = $Policy.grantControls.authenticationStrength
+    if (-not $st) { return $false }
+    if ($st.id -eq '00000000-0000-0000-0000-000000000004') { return $true }   # built-in "Phishing-resistant MFA"
+    $combos = @($st.allowedCombinations | Where-Object { $_ })
+    if ($combos.Count -eq 0) { return $false }
+    foreach ($c in $combos) {
+        $parts = @($c -split ',' | ForEach-Object { $_.Trim() })
+        if (@($parts | Where-Object { $_ -notin $PhishingResistantMethods }).Count -gt 0) { return $false }
+    }
+    return $true
+}
+
+$GroupMemberCache = @{}
+function Get-GroupMemberIds {
+    param([Parameter(Mandatory)][string]$GroupId)
+    if (-not $GroupMemberCache.ContainsKey($GroupId)) {
+        $ids = @()
+        try { $ids = @(Get-GraphCollection -Uri "https://graph.microsoft.com/v1.0/groups/$GroupId/transitiveMembers?`$select=id" | ForEach-Object { $_.id }) }
+        catch { $ids = $null }
+        $GroupMemberCache[$GroupId] = $ids
+    }
+    return $GroupMemberCache[$GroupId]
+}
+
+function Get-AdminCoverage {
+    # Returns $null if the policy does not cover Global Admins, otherwise an object with the admins it leaves out.
+    param($Policy, [string[]]$GaIds)
+    $u = $Policy.conditions.users
+    if (@($u.excludeRoles) -contains $GlobalAdminRoleId) { return $null }
+    if (-not ((@($u.includeRoles) -contains $GlobalAdminRoleId) -or (@($u.includeUsers) -contains 'All'))) { return $null }
+    $excluded = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($id in @($u.excludeUsers | Where-Object { $_ })) { [void]$excluded.Add($id) }
+    $unresolved = 0
+    foreach ($g in @($u.excludeGroups | Where-Object { $_ })) {
+        $members = Get-GroupMemberIds -GroupId $g
+        if ($null -eq $members) { $unresolved++ } else { foreach ($m in $members) { [void]$excluded.Add($m) } }
+    }
+    $gaExcluded = @($GaIds | Where-Object { $excluded.Contains($_) })
+    if ($GaIds.Count -gt 0 -and $gaExcluded.Count -ge $GaIds.Count) { return $null }
+    return [pscustomobject]@{ Policy = $Policy; ExcludedAdmins = $gaExcluded.Count; UnresolvedGroups = $unresolved }
 }
 
 function ConvertTo-Html-Safe { param([string]$Text) [System.Net.WebUtility]::HtmlEncode($Text) }
@@ -278,23 +326,30 @@ else {
             -Recommendation 'Create a CA policy: Users = All, Client apps = Exchange ActiveSync + Other clients, Grant = Block.'
     }
 
-    # Admin MFA
-    $adminMfa = @($enabledCa | Where-Object {
-            (($_.conditions.users.includeRoles -contains $GlobalAdminRoleId) -or ($_.conditions.users.includeUsers -contains 'All')) -and
-            (Test-RequiresMfa $_)
-        })
-    $adminStrength = @($adminMfa | Where-Object { $null -ne $_.grantControls.authenticationStrength })
+    # Admin MFA (honours CA exclusions: excluded roles, users and groups)
+    $gaIds = @()
+    try {
+        $gaIds = @(Get-GraphCollection -Uri "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments?`$filter=roleDefinitionId eq '$GlobalAdminRoleId'&`$select=principalId" | ForEach-Object { $_.principalId })
+    }
+    catch { $gaIds = @() }
+    $adminCoverage = @($enabledCa | Where-Object { Test-RequiresMfa $_ } | ForEach-Object { Get-AdminCoverage -Policy $_ -GaIds $gaIds } | Where-Object { $_ })
+    $adminMfa = @($adminCoverage | ForEach-Object { $_.Policy })
+    $adminStrength = @($adminCoverage | Where-Object { Test-PhishingResistantStrength $_.Policy })
+    $exclNote = ''
+    $maxExcl = ($adminCoverage | Measure-Object -Property ExcludedAdmins -Maximum).Maximum
+    if ($maxExcl -gt 0) { $exclNote += " Note: $maxExcl Global Admin(s) are excluded from a covering policy (fine if that is your break-glass account)." }
+    if (@($adminCoverage | Where-Object { $_.UnresolvedGroups -gt 0 }).Count -gt 0) { $exclNote += ' Some excluded groups could not be read, so admin exclusions may be incomplete.' }
     if ($adminStrength.Count -gt 0) {
-        Add-Result -Category 'Identity' -Check 'Admins require strong MFA' -Status 'Pass' -Weight 4 -Detail ("Authentication strength enforced by: " + (($adminStrength.displayName) -join ', '))
+        Add-Result -Category 'Identity' -Check 'Admins require strong MFA' -Status 'Pass' -Weight 4 -Detail ("Phishing-resistant authentication strength enforced by: " + (($adminStrength.Policy.displayName) -join ', ') + $exclNote)
     }
     elseif ($adminMfa.Count -gt 0) {
         Add-Result -Category 'Identity' -Check 'Admins require strong MFA' -Status 'Warn' -Weight 4 `
-            -Detail 'Admins require MFA, but not a phishing-resistant authentication strength.' `
+            -Detail ('Admins require MFA, but not a phishing-resistant authentication strength. Policies: ' + (($adminMfa.displayName) -join ', ') + $exclNote) `
             -Recommendation 'Create a CA policy for admin roles with Grant = Require authentication strength "Phishing-resistant MFA".'
     }
     else {
         Add-Result -Category 'Identity' -Check 'Admins require strong MFA' -Status 'Fail' -Weight 4 `
-            -Detail 'No CA policy requires MFA for Global Administrators.' `
+            -Detail 'No enabled CA policy requires MFA for Global Administrators once exclusions (roles, users, groups) are taken into account.' `
             -Recommendation 'Create a CA policy targeting admin roles requiring phishing-resistant MFA.'
     }
 

@@ -43,6 +43,7 @@ brew install powershell
 
 ```powershell
 pwsh
+Install-Module Microsoft.Graph.Authentication -Scope CurrentUser
 Install-Script -Name Invoke-M365TenantAudit -Scope CurrentUser
 Invoke-M365TenantAudit.ps1
 ```
@@ -54,6 +55,7 @@ Say **Yes** if it asks to add the scripts folder to your PATH, then open a new `
 ```powershell
 pwsh
 cd ~/Downloads
+Install-Module Microsoft.Graph.Authentication -Scope CurrentUser
 Invoke-WebRequest https://raw.githubusercontent.com/adminofone/m365-tenant-audit/main/Invoke-M365TenantAudit.ps1 -OutFile Invoke-M365TenantAudit.ps1
 ./Invoke-M365TenantAudit.ps1
 ```
@@ -72,7 +74,7 @@ Sign in with a **Global Reader** (recommended) or Global Administrator account a
 ## Requirements
 
 - PowerShell 7+ (Windows, macOS, Linux)
-- `Microsoft.Graph.Authentication` module (installed automatically on first run)
+- `Microsoft.Graph.Authentication` module. The script does not install anything on its own: if the module is missing it tells you the command and exits.
 - Some checks (sign-in activity, MFA registration) need Entra ID P1, which is included in Microsoft 365 Business Premium. Without it those checks show as *Info* rather than failing.
 
 ## Notes on new tenants
