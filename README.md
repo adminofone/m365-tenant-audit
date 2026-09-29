@@ -1,5 +1,7 @@
 # M365 Tenant Audit
 
+[![PowerShell Gallery](https://img.shields.io/powershellgallery/v/Invoke-M365TenantAudit?label=PowerShell%20Gallery)](https://www.powershellgallery.com/packages/Invoke-M365TenantAudit) [![Downloads](https://img.shields.io/powershellgallery/dt/Invoke-M365TenantAudit)](https://www.powershellgallery.com/packages/Invoke-M365TenantAudit)
+
 **A free, read-only security check for Microsoft 365. One command, one HTML report, a score out of 100.**
 
 Built for the one-person IT department: small and mid-size companies on Microsoft 365 Business Premium that have no security team, but still get the phishing emails.
@@ -37,7 +39,17 @@ winget install --id Microsoft.PowerShell --source winget
 brew install powershell
 ```
 
-**2. Download and run**
+**2. Install and run (PowerShell Gallery, recommended)**
+
+```powershell
+pwsh
+Install-Script -Name Invoke-M365TenantAudit -Scope CurrentUser
+Invoke-M365TenantAudit.ps1
+```
+
+Say **Yes** if it asks to add the scripts folder to your PATH, then open a new `pwsh` window.
+
+**Or download directly from GitHub**
 
 ```powershell
 pwsh
